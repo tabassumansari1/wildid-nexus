@@ -156,3 +156,53 @@ class UploadTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertContains(response, "at least two", status_code=400)
+
+    def test_persistent_registry_and_repeat_detection(self):
+        # 1. First scan with Coat 1
+        resp1 = self.client.post(
+            reverse("create_scan"),
+            {
+                "files": [
+                    _jpeg(render_coat(1, 10), "tiger-morning.jpg"),
+                    _jpeg(render_coat(1, 99, angle=5, bright=15), "tiger-later.jpg"),
+                ],
+                "location": "Waterhole Alpha",
+            },
+            follow=True,
+        )
+        self.assertEqual(resp1.status_code, 200)
+        self.assertContains(resp1, "TIG-001")
+        self.assertContains(resp1, "Bengal Tiger")
+
+        # 2. Second scan later with the SAME animal at a new location
+        resp2 = self.client.post(
+            reverse("create_scan"),
+            {
+                "files": [
+                    _jpeg(render_coat(1, 40, angle=-4, shift=(10, 10)), "tiger-sighting3.jpg"),
+                    _jpeg(render_coat(1, 70, angle=6, shift=(-10, 5)), "tiger-sighting4.jpg"),
+                ],
+                "location": "Sector 4 Ridge",
+            },
+            follow=True,
+        )
+        self.assertEqual(resp2.status_code, 200)
+        # Should detect that it already exists in the registry
+        self.assertContains(resp2, "ALREADY IN REGISTRY")
+        self.assertContains(resp2, "TIG-001")
+        self.assertContains(resp2, "Waterhole Alpha")
+
+        # 3. Third scan with a completely DIFFERENT animal (Coat 7)
+        resp3 = self.client.post(
+            reverse("create_scan"),
+            {
+                "files": [
+                    _jpeg(render_coat(7, 11), "tiger2-a.jpg"),
+                    _jpeg(render_coat(7, 88, angle=4), "tiger2-b.jpg"),
+                ],
+                "location": "River Crossing",
+            },
+            follow=True,
+        )
+        self.assertEqual(resp3.status_code, 200)
+        self.assertContains(resp3, "TIG-002")

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ individual.custom_id }} ({{ individual.species }}) — WILD-ID Nexus{% endblock %}
+{% block content %}
+<article class="report">
+  <div style="margin-bottom: 2rem;">
+    <a href="{% url 'animal_catalog' %}" style="color: #4ade80; text-decoration: none; font-size: 0.85rem; font-weight: 600;">&larr; Back to Registry</a>
+    <div style="display: flex; align-items: baseline; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+      <span style="background: #15803d; color: #fff; font-weight: 800; font-size: 1.1rem; padding: 0.3rem 0.8rem; border-radius: 6px;">
+        {{ individual.custom_id }}
+      </span>
+      <h1 style="margin: 0; font-size: 2rem;">{{ individual.species }}</h1>
+      <em style="color: #94a3b8; font-size: 1.1rem;">{{ individual.scientific_name }}</em>
+    </div>
+    <p class="dek" style="margin-top: 0.5rem;">Pattern Geometry: {{ individual.pattern_type }} · Total Lifetime Sightings: {{ individual.sighting_count }}</p>
+  </div>
+
+  <section class="groups" style="margin-top: 1rem;">
+    <h2>Sighting History Timeline</h2>
+    <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1.5rem;">
+      {% for s in sightings %}
+      <div style="background: rgba(18, 25, 21, 0.85); border: 1px solid rgba(74, 222, 128, 0.2); border-radius: 8px; padding: 1.25rem; display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;">
+        {% if s.preview_url %}
+        <img src="{{ s.preview_url }}" alt="Sighting photo" style="width: 140px; height: 100px; object-fit: cover; border-radius: 6px;">
+        {% endif %}
+        <div style="flex: 1; min-width: 240px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong style="color: #4ade80; font-size: 1.05rem;">Sighting #{{ forloop.revcounter }}</strong>
+            <span style="font-size: 0.8rem; background: rgba(255,255,255,0.08); padding: 0.2rem 0.5rem; border-radius: 4px; color: #cbd5e1;">
+              {{ s.sighted_at|date:"d M Y, H:i" }}
+            </span>
+          </div>
+          <p style="margin: 0.4rem 0; color: #f1f5f9; font-size: 0.95rem;">
+            <strong>Location:</strong> {{ s.location }}
+          </p>
+          <p style="margin: 0; color: #94a3b8; font-size: 0.85rem;">
+            {{ s.notes|default:"Verified through geometric mark-recapture consensus." }}
+          </p>
+        </div>
+        {% if s.scan %}
+        <a class="btn btn-small" href="{% url 'report' s.scan.id %}" style="align-self: center;">View Scan Report</a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</article>
+{% endblock %}

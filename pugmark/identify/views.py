@@ -9,7 +9,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from .engine import EngineError, analyze
-from .models import Scan, ScanAsset
+from .models import Individual, Scan, ScanAsset, Sighting
+from .registry import process_scan_individuals
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,19 @@ def report(request, scan_id):
     return render(request, "report.html", {"scan": scan, "result": scan.result or {}})
 
 
+@require_GET
+def animal_catalog(request):
+    individuals = Individual.objects.all().prefetch_related("sightings")
+    return render(request, "catalog.html", {"individuals": individuals})
+
+
+@require_GET
+def animal_detail(request, custom_id):
+    individual = get_object_or_404(Individual, custom_id=custom_id)
+    sightings = individual.sightings.all().order_by("-sighted_at")
+    return render(request, "animal_detail.html", {"individual": individual, "sightings": sightings})
+
+
 @require_POST
 def create_scan(request):
     wants_json = request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -44,7 +58,8 @@ def create_scan(request):
     if error:
         return _fail(request, wants_json, error)
 
-    scan = Scan.objects.create(status="running")
+    location = request.POST.get("location", "").strip() or "Station 1 - Waterhole"
+    scan = Scan.objects.create(status="running", location=location)
     upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / str(scan.id)
     upload_dir.mkdir(parents=True, exist_ok=True)
     items = []
@@ -61,6 +76,8 @@ def create_scan(request):
             )
         out_dir = Path(settings.MEDIA_ROOT) / "reports" / str(scan.id)
         result = analyze(items, out_dir, settings.MEDIA_URL)
+        signatures_by_id = result.pop("_signatures_by_id", {})
+        process_scan_individuals(scan, result, signatures_by_id, scan_location=location)
     except EngineError as exc:
         return _finish_error(request, wants_json, scan, str(exc))
     except Exception as exc:

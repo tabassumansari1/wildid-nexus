@@ -150,7 +150,7 @@ def _finish_error(request, wants_json, scan: Scan, message: str):
     return redirect("report", scan.id)
 
 
-def _fail(request, wants_json, message: str, status: int = 400):
+def _fail(request, wants_json, message, status: int = 400):
     if wants_json:
         return JsonResponse({"ok": False, "error": message}, status=status)
     return render(request, "connect.html", {"error": message}, status=status)
@@ -163,3 +163,72 @@ def _safe_name(name: str) -> str:
     base = Path(name or "").name.replace("\x00", "")
     cleaned = _SAFE.sub("", base).strip(" .")
     return (cleaned or "upload")[:160]
+
+
+@require_GET
+def verification_queue(request):
+    """List all sightings that need human review."""
+    pending = Sighting.objects.filter(
+        verification_status="pending"
+    ).select_related('individual').order_by('confidence')
+    
+    return render(request, "verify_queue.html", {"pending": pending})
+
+
+@require_GET
+def verify_sighting(request, sighting_id):
+    """Detailed view for a single sighting to be verified."""
+    sighting = get_object_or_404(Sighting, id=sighting_id)
+    individual = sighting.individual
+    
+    # Find the best historical sighting for comparison
+    comparison = Sighting.objects.filter(
+        individual=individual
+    ).exclude(id=sighting.id).order_by('-confidence').first()
+    
+    return render(request, "verify_sighting.html", {
+        "sighting": sighting,
+        "individual": individual,
+        "comparison": comparison,
+    })
+
+
+@require_POST
+def submit_verification(request):
+    """Process a human verification decision."""
+    sighting_id = request.POST.get("sighting_id")
+    decision = request.POST.get("decision") # 'confirm', 'reject', 'split'
+    reviewer = request.POST.get("reviewer", "Anonymous Expert")
+    notes = request.POST.get("notes", "")
+    
+    sighting = get_object_or_404(Sighting, id=sighting_id)
+    
+    if decision == "confirm":
+        sighting.verification_status = "confirmed"
+    elif decision == "reject":
+        sighting.verification_status = "rejected"
+    elif decision == "split":
+        # Create a new identity
+        from .registry import _generate_next_id
+        
+        species_code = sighting.individual.species[:3].upper() if sighting.individual.species else "WLD"
+        new_id = _generate_next_id(species_code)
+        
+        new_ind = Individual.objects.create(
+            custom_id=new_id,
+            species=sighting.individual.species,
+            scientific_name=sighting.individual.scientific_name,
+            name=f"{sighting.individual.species} ({new_id})",
+            first_location=sighting.location,
+            last_location=sighting.location,
+            sighting_count=1,
+        )
+        sighting.individual = new_ind
+        sighting.verification_status = "confirmed"
+        sighting.notes = f"Split from original identity by human reviewer."
+
+    sighting.reviewed_by = reviewer
+    sighting.review_notes = notes
+    sighting.save()
+    
+    return redirect("verification_queue")

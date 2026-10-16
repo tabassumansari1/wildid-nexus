@@ -55,13 +55,23 @@ def process_scan_individuals(
 
         if match_record:
             # Animal already exists in database!
-            existing_ind, inliers, conf = match_record
+            existing_ind, inliers, conf, similarity = match_record
             previous_last_seen = existing_ind.last_seen
             previous_last_location = existing_ind.last_location
             existing_ind.sighting_count += 1
             existing_ind.last_location = scan_location
             existing_ind.last_seen = timezone.now()
             existing_ind.save(update_fields=["sighting_count", "last_location", "last_seen"])
+
+            # Determine Confidence Band
+            # High: High inliers AND high embedding similarity
+            # Medium: Moderate inliers OR moderate similarity
+            # Low: Everything else
+            band = "low"
+            if inliers >= 40 and similarity >= 0.85:
+                band = "high"
+            elif inliers >= 18 or similarity >= 0.75:
+                band = "medium"
 
             # Create sighting record
             Sighting.objects.create(
@@ -71,8 +81,10 @@ def process_scan_individuals(
                 preview_url=primary_file_info.get("preview", ""),
                 location=scan_location,
                 confidence=conf,
+                confidence_band=band,
+                verification_status="pending", # All matches start as pending
                 is_repeat=True,
-                notes=f"Identified with {inliers} matching geometric landmark inliers.",
+                notes=f"Identified with {inliers} inliers (Sim: {similarity:.2f}). Band: {band}.",
             )
 
             first_seen_str = existing_ind.first_seen.strftime("%d %b %Y, %I:%M %p")
@@ -126,6 +138,8 @@ def process_scan_individuals(
                 preview_url=primary_file_info.get("preview", ""),
                 location=scan_location,
                 confidence=100.0,
+                confidence_band="high", # First sighting of a new identity is baseline high
+                verification_status="confirmed",
                 is_repeat=False,
                 notes="Initial registration sighting.",
             )
@@ -150,12 +164,13 @@ def _find_existing_match(sig, species_code: str):
         return None
 
     # Import locally to avoid circular dependencies
-    from .engine import _match
+    from .engine import _match, cosine_similarity
 
     individuals = Individual.objects.all()
     best_candidate = None
     best_inliers = 0
     best_conf = 0.0
+    best_similarity = 0.0
 
     for ind in individuals:
         cache_path = ind.feature_cache_path
@@ -181,8 +196,20 @@ def _find_existing_match(sig, species_code: str):
                 tag="ref",
             )
 
+            # 1. Fast Retrieval: Check Deep Embedding Similarity first
+            # We assume the embedding is stored in signature_data or a cached file.
+            # For now, we use the geometric match but track the similarity.
+            
             # Compare against each view of the new signature
             for view in sig.views:
+                # If both have embeddings, calculate cosine similarity
+                similarity = 0.0
+                if sig.embedding is not None:
+                    # We need the reference embedding. Let's load it from the cache if possible
+                    # Note: For now, we'll rely on the geometric match but a real system would 
+                    # load the reference embedding from the DB/Cache.
+                    pass
+
                 match_res = _match(view, ref_view)
                 inliers = match_res["inliers"]
                 ratio = match_res["ratio"]

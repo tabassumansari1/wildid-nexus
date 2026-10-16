@@ -73,6 +73,7 @@ SPECIES_PROFILES = {
 }
 
 
+
 def classify_species(image: np.ndarray, file_name: str = "") -> dict:
     """Return a cautious species estimate; individual identity is handled separately."""
     if image is None or image.size == 0:

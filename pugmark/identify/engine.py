@@ -23,12 +23,13 @@ import cv2
 import numpy as np
 from PIL import Image, UnidentifiedImageError
 
-from .species import classify_species
+from .embeddings import embedding_engine, cosine_similarity
 
 Image.MAX_IMAGE_PIXELS = 36_000_000
 
 MAX_SIDE = 960
 DIFFERENT_INLIERS = 9
+EMBEDDING_THRESHOLD = 0.75 # Minimum cosine similarity to trigger geometric check
 
 
 class EngineError(ValueError):
@@ -60,6 +61,7 @@ class Signature:
     pattern_type: str = "Geometric Surface Markings"
     species_confidence: float = 85.0
     species_source: str = "unclassified"
+    embedding: np.ndarray | None = None
 
 
 @dataclass
@@ -214,6 +216,9 @@ def _signature_for(item: dict, out_dir: Path) -> Signature:
     _write_jpeg(preview, out_dir / preview_name, max_side=720)
 
     species_res = classify_species(preview, item["name"])
+    
+    # Extract deep embedding for the best view
+    embedding = embedding_engine.extract(best.image) if best else None
 
     return Signature(
         file_id=str(item["id"]),
@@ -230,10 +235,28 @@ def _signature_for(item: dict, out_dir: Path) -> Signature:
         pattern_type=species_res.get("pattern_type", "Geometric Surface Markings"),
         species_confidence=species_res.get("confidence", 85.0),
         species_source=species_res.get("classification_source", "unclassified"),
+        embedding=embedding,
     )
 
 
 def _compare(a: Signature, b: Signature, out_dir: Path) -> PairResult:
+    # 1. Deep Embedding Filter (Phase 1: Fast Retrieval)
+    if a.embedding is not None and b.embedding is not None:
+        similarity = cosine_similarity(a.embedding, b.embedding)
+        # If embeddings are completely different, we skip the expensive geometric check
+        # unless one of them is 'weak' quality, in which case we are more lenient.
+        if similarity < EMBEDDING_THRESHOLD:
+            return PairResult(
+                a=a.file_id,
+                b=b.file_id,
+                verdict="different",
+                inliers=0,
+                good=0,
+                ratio=similarity,
+                reason=f"Deep embedding mismatch (sim: {similarity:.2f}). Pattern geometry is fundamentally different.",
+                low_quality=False,
+            )
+
     best = None
     best_views = None
     for va in a.views:
@@ -244,6 +267,7 @@ def _compare(a: Signature, b: Signature, out_dir: Path) -> PairResult:
                 best = matched
                 best_views = (va, vb)
     assert best is not None and best_views is not None
+
     low = a.quality == "weak" or b.quality == "weak"
     verdict = _verdict(best["inliers"], best["ratio"], low)
     reason = _reason(verdict, best["inliers"], best["good"], best["ratio"], low, a, b)

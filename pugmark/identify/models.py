@@ -60,13 +60,28 @@ class Sighting(models.Model):
     image_path = models.CharField(max_length=400, blank=True)
     preview_url = models.CharField(max_length=400, blank=True)
     location = models.CharField(max_length=200, default="Station 1 - Waterhole")
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     sighted_at = models.DateTimeField(auto_now_add=True)
     confidence = models.FloatField(default=100.0)
+    confidence_band = models.CharField(
+        max_length=16, 
+        choices=[("high", "High"), ("medium", "Medium"), ("low", "Low")], 
+        default="medium"
+    )
+    verification_status = models.CharField(
+        max_length=16, 
+        choices=[("pending", "Pending"), ("confirmed", "Confirmed"), ("rejected", "Rejected")], 
+        default="pending"
+    )
+    reviewed_by = models.CharField(max_length=100, blank=True)
+    review_notes = models.TextField(blank=True)
     is_repeat = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-sighted_at"]
+
 
     def __str__(self) -> str:
         return f"{self.individual.custom_id} @ {self.location} on {self.sighted_at:%Y-%m-%d %H:%M}"

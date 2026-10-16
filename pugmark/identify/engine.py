@@ -29,7 +29,6 @@ Image.MAX_IMAGE_PIXELS = 36_000_000
 
 MAX_SIDE = 960
 DIFFERENT_INLIERS = 9
-NEAR_DUP_HAMMING = 10
 
 
 class EngineError(ValueError):
@@ -60,6 +59,7 @@ class Signature:
     scientific_name: str = "Animalia"
     pattern_type: str = "Geometric Surface Markings"
     species_confidence: float = 85.0
+    species_source: str = "unclassified"
 
 
 @dataclass
@@ -134,6 +134,7 @@ def analyze(items: list[dict], out_dir: Path, media_url: str) -> dict:
                 "scientific_name": sig.scientific_name,
                 "pattern_type": sig.pattern_type,
                 "species_confidence": sig.species_confidence,
+                "species_source": sig.species_source,
             }
         )
     file_card = {row["id"]: row for row in files_out}
@@ -144,6 +145,7 @@ def analyze(items: list[dict], out_dir: Path, media_url: str) -> dict:
         individual["scientific_name"] = primary_f.get("scientific_name", "")
         individual["pattern_type"] = primary_f.get("pattern_type", "")
         individual["species_confidence"] = primary_f.get("species_confidence", 85.0)
+        individual["species_source"] = primary_f.get("species_source", "unclassified")
 
     pairs_out = []
     for pair in pairs:
@@ -227,11 +229,11 @@ def _signature_for(item: dict, out_dir: Path) -> Signature:
         scientific_name=species_res.get("scientific_name", "Animalia"),
         pattern_type=species_res.get("pattern_type", "Geometric Surface Markings"),
         species_confidence=species_res.get("confidence", 85.0),
+        species_source=species_res.get("classification_source", "unclassified"),
     )
 
 
 def _compare(a: Signature, b: Signature, out_dir: Path) -> PairResult:
-    hamming = int(np.count_nonzero(a.digest != b.digest))
     best = None
     best_views = None
     for va in a.views:
@@ -243,8 +245,8 @@ def _compare(a: Signature, b: Signature, out_dir: Path) -> PairResult:
                 best_views = (va, vb)
     assert best is not None and best_views is not None
     low = a.quality == "weak" or b.quality == "weak"
-    verdict = _verdict(best["inliers"], best["ratio"], hamming, low)
-    reason = _reason(verdict, best["inliers"], best["good"], hamming, low, a, b)
+    verdict = _verdict(best["inliers"], best["ratio"], low)
+    reason = _reason(verdict, best["inliers"], best["good"], best["ratio"], low, a, b)
     pair = PairResult(
         a=a.file_id,
         b=b.file_id,
@@ -260,9 +262,7 @@ def _compare(a: Signature, b: Signature, out_dir: Path) -> PairResult:
     return pair
 
 
-def _verdict(inliers: int, ratio: float, hamming: int, low: bool) -> str:
-    if hamming <= NEAR_DUP_HAMMING:
-        return "same"
+def _verdict(inliers: int, ratio: float, low: bool) -> str:
     # Ratio matters more than raw count. A smooth body outline can produce a
     # handful of geometrically consistent points across two different coats.
     confident = inliers >= 18 and ratio >= 0.42
@@ -278,38 +278,46 @@ def _verdict(inliers: int, ratio: float, hamming: int, low: bool) -> str:
     return "uncertain"
 
 
-def _reason(verdict: str, inliers: int, good: int, hamming: int, low: bool, a: Signature, b: Signature) -> str:
+def _reason(verdict: str, inliers: int, good: int, ratio: float, low: bool, a: Signature, b: Signature) -> str:
     a_sp = a.species or "Wild Individual"
     b_sp = b.species or "Wild Individual"
-
-    if hamming <= NEAR_DUP_HAMMING and verdict == "same":
-        return f"Exact Frame Match: Both files show the identical sighting frame of {a_sp}."
 
     if verdict == "same":
         where = ""
         if a.kind == "video" or b.kind == "video":
             where = " Video clips contributed their sharpest stable frames."
         return (
-            f"Geometric Consensus Confirmed: Both sightings show the identical {a_sp}. "
-            f"{inliers} distinct coat landmark points aligned under a single affine transformation "
-            f"({good} candidate points evaluated). Coat geometry (stripe intersections and rosette clusters) "
-            f"proves this is the exact same animal, not merely the same species." + where
+            f"Geometric match supported: Both sightings are consistent with the same {a_sp}. "
+            f"{inliers} coat landmarks survived RANSAC out of {good} candidates "
+            f"({ratio:.0%} inlier ratio). This is evidence of individual identity, not proof; "
+            f"review the aligned points before relying on the result." + where
         )
 
-    if a_sp != b_sp and a_sp != "Wild Individual" and b_sp != "Wild Individual":
+    if (
+        a_sp != b_sp
+        and a_sp != "Wild Individual"
+        and b_sp != "Wild Individual"
+        and a.species_confidence >= 80
+        and b.species_confidence >= 80
+    ):
         return (
-            f"Taxonomic Divergence: Sightings represent two distinct species "
-            f"({a.name} is a {a_sp}, whereas {b.name} is a {b_sp}). "
-            f"Only {inliers} incidental correspondences were found out of {good} lookalike candidates. "
-            f"Coat topologies disagree completely."
+            f"Species estimates differ: {a.name} is estimated as {a_sp}, "
+            f"whereas {b.name} is estimated as {b_sp}. "
+            f"Only {inliers} correspondences survived geometric verification out of {good} candidates. "
+            f"These results support different individuals; confirm the species estimates independently."
         )
 
     if verdict == "different":
+        species_context = (
+            f"Both sightings are estimated as {a_sp}, but "
+            if a_sp != "Wild Individual"
+            else ""
+        )
         return (
-            f"Pattern Topology Mismatch: Both sightings show {a_sp}, but their coat markings are distinct. "
+            f"Pattern geometry differs: {species_context}the coat markings do not align. "
             f"Only {inliers} correspondences survived geometric consensus out of {good} candidates "
-            f"(threshold requires >= 18 consistent inliers). The spatial layout of markings contradicts identity, "
-            f"proving these are two different individuals."
+            f"(a match needs at least 18 inliers with a sufficient ratio). This supports different individuals, "
+            f"but is not proof."
         )
 
     if low:
@@ -321,7 +329,7 @@ def _reason(verdict: str, inliers: int, good: int, hamming: int, low: bool, a: S
 
     return (
         f"Intermediate Correspondence: {inliers} landmarks line up ({good} candidates). "
-        f"This exceeds random noise but does not reach the statistical certainty threshold (>= 18 inliers) "
+        f"This does not reach the identity threshold (at least 18 inliers and a sufficient ratio) "
         f"for individual identity. Capture a clearer flank or facial angle to verify."
     )
 
@@ -388,28 +396,15 @@ def _render_evidence_canvas(
 
     if pair.verdict == "same":
         cv2.rectangle(canvas, (0, 0), (canvas_w, header_h), (25, 55, 35), -1)
-        cv2.putText(canvas, "WILD-ID NEXUS: GEOMETRIC CONSENSUS VERIFIED (SAME INDIVIDUAL)", (20, 26), font, 0.62, (100, 245, 160), 2, cv2.LINE_AA)
-        cv2.putText(canvas, f"Landmarks: {pair.inliers} aligned under affine transform | Geometric Confidence: 98.4%", (20, 50), font, 0.46, (200, 240, 210), 1, cv2.LINE_AA)
+        cv2.putText(canvas, "WILD-ID NEXUS: GEOMETRIC MATCH SUPPORTS SAME INDIVIDUAL", (20, 26), font, 0.62, (100, 245, 160), 2, cv2.LINE_AA)
+        cv2.putText(canvas, f"RANSAC inliers: {pair.inliers}/{pair.good} ({pair.ratio:.0%})", (20, 50), font, 0.46, (200, 240, 210), 1, cv2.LINE_AA)
 
         chosen = matched.get("draw") or []
         if chosen:
-            coords = []
+            # _match only returns points that survived its RANSAC geometry check.
             for m in chosen:
                 pt_l = (int(left.keypoints[m.queryIdx].pt[0] * scale_l), int(left.keypoints[m.queryIdx].pt[1] * scale_l) + header_h)
                 pt_r = (int(right.keypoints[m.trainIdx].pt[0] * scale_r) + wl + gap, int(right.keypoints[m.trainIdx].pt[1] * scale_r) + header_h)
-                dx, dy = pt_r[0] - pt_l[0], pt_r[1] - pt_l[1]
-                angle = float(np.arctan2(dy, dx))
-                coords.append((pt_l, pt_r, angle))
-
-            # Filter wild crossing lines by angle median
-            angles = [c[2] for c in coords]
-            med_angle = float(np.median(angles))
-            coherent = [c for c in coords if abs(c[2] - med_angle) < 0.48]
-            if not coherent:
-                coherent = coords[:15]
-
-            # Draw lines and landmark points
-            for pt_l, pt_r, _ in coherent[:32]:
                 cv2.line(canvas, pt_l, pt_r, (46, 204, 113), 2, cv2.LINE_AA)
                 cv2.circle(canvas, pt_l, 6, (34, 197, 94), 2, cv2.LINE_AA)
                 cv2.circle(canvas, pt_l, 2, (0, 255, 255), -1, cv2.LINE_AA)
@@ -461,6 +456,7 @@ def _render_evidence_canvas(
 
 def _cluster(signatures: list[Signature], pairs: list[PairResult]) -> list[dict]:
     parent = {sig.file_id: sig.file_id for sig in signatures}
+    pair_verdicts = {frozenset((pair.a, pair.b)): pair.verdict for pair in pairs}
 
     def find(x: str) -> str:
         while parent[x] != x:
@@ -474,8 +470,19 @@ def _cluster(signatures: list[Signature], pairs: list[PairResult]) -> list[dict]
             parent[ry] = rx
 
     for pair in pairs:
-        if pair.verdict == "same":
-            union(pair.a, pair.b)
+        if pair.verdict != "same":
+            continue
+        left_root, right_root = find(pair.a), find(pair.b)
+        if left_root == right_root:
+            continue
+        left_members = [file_id for file_id in parent if find(file_id) == left_root]
+        right_members = [file_id for file_id in parent if find(file_id) == right_root]
+        if all(
+            pair_verdicts.get(frozenset((left, right))) == "same"
+            for left in left_members
+            for right in right_members
+        ):
+            union(left_root, right_root)
 
     groups: dict[str, list[str]] = {}
     for sig in signatures:

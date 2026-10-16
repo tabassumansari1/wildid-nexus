@@ -74,33 +74,30 @@ SPECIES_PROFILES = {
 
 
 def classify_species(image: np.ndarray, file_name: str = "") -> dict:
-    """Analyze coat color, contrast, and edge orientation to identify the species."""
+    """Return a cautious species estimate; individual identity is handled separately."""
     if image is None or image.size == 0:
-        return SPECIES_PROFILES["WILD"].copy()
+        return _unclassified()
 
-    name_lower = Path(file_name or "").stem.lower()
+    name_tokens = set(re.findall(r"[a-z0-9]+", Path(file_name or "").stem.lower()))
 
-    # Contextual clues in file name if present
-    if any(k in name_lower for k in ["tiger", "sher", "bagh", "tigris", "t1", "t-"]):
-        res = SPECIES_PROFILES["TIGER"].copy()
-        res["confidence"] = 96.0
-        return res
-    if any(k in name_lower for k in ["leopard", "tendua", "pardus", "panther", "flank"]):
-        res = SPECIES_PROFILES["LEOPARD"].copy()
-        res["confidence"] = 95.0
-        return res
-    if any(k in name_lower for k in ["zebra", "quagga"]):
-        res = SPECIES_PROFILES["ZEBRA"].copy()
-        res["confidence"] = 98.0
-        return res
-    if any(k in name_lower for k in ["giraffe", "giraffa"]):
-        res = SPECIES_PROFILES["GIRAFFE"].copy()
-        res["confidence"] = 95.0
-        return res
-    if any(k in name_lower for k in ["cheetah", "jubatus"]):
-        res = SPECIES_PROFILES["CHEETAH"].copy()
-        res["confidence"] = 94.0
-        return res
+    filename_hints = (
+        ("SNOW_LEOPARD", {"snow", "uncia"}),
+        ("TIGER", {"tiger", "sher", "bagh", "tigris"}),
+        ("LEOPARD", {"leopard", "tendua", "pardus"}),
+        ("JAGUAR", {"jaguar", "onca"}),
+        ("ZEBRA", {"zebra", "quagga"}),
+        ("GIRAFFE", {"giraffe", "giraffa"}),
+        ("CHEETAH", {"cheetah", "jubatus"}),
+    )
+    for profile_key, hint_tokens in filename_hints:
+        numbered_tiger_hint = profile_key == "TIGER" and any(
+            re.fullmatch(r"tiger\d+", token) for token in name_tokens
+        )
+        if name_tokens & hint_tokens or numbered_tiger_hint:
+            result = SPECIES_PROFILES[profile_key].copy()
+            result["confidence"] = 95.0
+            result["classification_source"] = "filename hint"
+            return result
 
     # Computer Vision Analysis of Image
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -109,21 +106,20 @@ def classify_species(image: np.ndarray, file_name: str = "") -> dict:
 
     # 1. Color Metrics
     # Low saturation & high contrast => Zebra (monochrome)
-    mean_sat = float(np.mean(s))
     low_sat_pct = float(np.count_nonzero(s < 40)) / s.size
     v_contrast = float(np.std(v))
 
     # Orange / Reddish-Gold pixels (Tigers: Hue 8-22, Sat > 60, Val > 50)
     orange_mask = ((h >= 8) & (h <= 24) & (s >= 55) & (v >= 45)).astype(np.uint8)
-    orange_pct = float(np.count_nonzero(orange_mask)) / image.size
+    orange_pct = float(np.count_nonzero(orange_mask)) / h.size
 
     # Golden / Tawny Yellow pixels (Leopards / Cheetahs: Hue 20-38, Sat 40-180)
     golden_mask = ((h >= 18) & (h <= 36) & (s >= 40) & (v >= 60)).astype(np.uint8)
-    golden_pct = float(np.count_nonzero(golden_mask)) / image.size
+    golden_pct = float(np.count_nonzero(golden_mask)) / h.size
 
     # Dark Melanistic pixels (Stripes / spots: V < 55)
     dark_mask = (v < 55).astype(np.uint8)
-    dark_pct = float(np.count_nonzero(dark_mask)) / image.size
+    dark_pct = float(np.count_nonzero(dark_mask)) / h.size
 
     # 2. Gradient / Texture Directional Analysis (Sobel)
     gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
@@ -131,13 +127,13 @@ def classify_species(image: np.ndarray, file_name: str = "") -> dict:
     mag, ang = cv2.cartToPolar(gx, gy, angleInDegrees=True)
     strong_grad = mag > (np.mean(mag) + 1.2 * np.std(mag))
 
-    # Vertical stripe check: strong horizontal gradients (gx dominates) => angles near 0 or 180
+    # Vertical stripe edges have predominantly horizontal gradients.
     valid_angles = ang[strong_grad]
     if len(valid_angles) > 100:
-        vert_stripes = np.count_nonzero((valid_angles < 30) | (valid_angles > 150) | ((valid_angles > 70) & (valid_angles < 110)))
+        vert_stripes = np.count_nonzero((valid_angles < 25) | (valid_angles > 155))
         vert_ratio = vert_stripes / len(valid_angles)
     else:
-        vert_ratio = 0.5
+        vert_ratio = 0.0
 
     # 3. Rosette / Spot Detection (Laplacian / Circularity)
     blurred = cv2.GaussianBlur(gray, (7, 7), 0)
@@ -168,41 +164,42 @@ def classify_species(image: np.ndarray, file_name: str = "") -> dict:
     if low_sat_pct > 0.65 and v_contrast > 45:
         scores["ZEBRA"] += 50.0 + (low_sat_pct * 30.0)
 
-    # Tiger: High orange percentage, distinct dark stripes, strong directional lines
-    if orange_pct > 0.12 or (mean_sat > 45 and orange_pct > 0.06):
-        scores["TIGER"] += 45.0 + (orange_pct * 100.0)
+    # Tiger: Orange ground coat plus directional, high-contrast stripe edges.
+    if orange_pct > 0.12 and vert_ratio > 0.32:
+        scores["TIGER"] += 40.0 + (orange_pct * 60.0) + (vert_ratio * 20.0)
     if dark_pct > 0.10 and orange_pct > 0.08:
-        scores["TIGER"] += 25.0
+        scores["TIGER"] += 15.0
 
-    # Leopard: Golden ground, dark rosettes, moderate circularity
-    if golden_pct > 0.15:
+    # Leopard: Golden ground plus a moderate density of rosette-like markings.
+    if golden_pct > 0.15 and 8 <= rosette_candidates <= 30:
         scores["LEOPARD"] += 35.0 + (golden_pct * 60.0)
-    if rosette_candidates > 15:
         scores["LEOPARD"] += min(35.0, rosette_candidates * 1.5)
 
     # Giraffe: Large polygonal patches, brownish-orange
     if 0.10 < orange_pct < 0.35 and 0.15 < dark_pct < 0.40 and rosette_candidates < 8:
         scores["GIRAFFE"] += 25.0
 
-    # Cheetah: High spot density, smaller circular spots
+    # Cheetah: Dense small spots on a golden ground coat.
     if rosette_candidates > 30 and golden_pct > 0.15:
-        scores["CHEETAH"] += 30.0
+        scores["CHEETAH"] += 55.0 + min(30.0, rosette_candidates * 0.7)
 
-    best_key = max(scores, key=scores.get)
-    best_score = scores[best_key]
+    ranked_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    best_key, best_score = ranked_scores[0]
+    runner_up_score = ranked_scores[1][1]
+    margin = best_score - runner_up_score
 
-    if best_score > 30.0:
+    if best_score >= 45.0 and margin >= 10.0:
         res = SPECIES_PROFILES[best_key].copy()
-        confidence = min(98.5, max(72.0, 50.0 + best_score * 0.5))
-        res["confidence"] = round(confidence, 1)
+        res["confidence"] = round(min(88.0, 65.0 + margin * 0.7), 1)
+        res["classification_source"] = "coat-pattern heuristic"
         return res
 
-    # Fallback to Tiger / Leopard based on orange/golden hue or default to Tiger (primary target of Pugmark)
-    if orange_pct >= golden_pct:
-        res = SPECIES_PROFILES["TIGER"].copy()
-        res["confidence"] = 82.0
-        return res
-    else:
-        res = SPECIES_PROFILES["LEOPARD"].copy()
-        res["confidence"] = 80.0
-        return res
+    return _unclassified()
+
+
+def _unclassified() -> dict:
+    return {
+        **SPECIES_PROFILES["WILD"],
+        "confidence": 0.0,
+        "classification_source": "unclassified",
+    }

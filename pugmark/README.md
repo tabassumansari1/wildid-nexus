@@ -57,7 +57,9 @@ Then run your own camera-trap or patrol photos. Patterned animals (tiger, leopar
    - **Same** — enough verified correspondences (or the file is a trivial re-export of the same frame).
    - **Different** — the geometry does not agree, and both views were sharp enough to trust a rejection.
    - **Inconclusive** — too few stable points to be either sure or dismissive.
-6. Files with a “same” verdict are clustered into individuals.
+6. Files are grouped only when every cross-pair in a group has a supported match; one conflicting comparison blocks a transitive merge.
+
+Species names are estimates, separate from individual identity. Clear coat-pattern cues or an explicit species name in the filename can provide a label; ambiguous images stay **Wild Individual** rather than being forced into a species. The visual species heuristic is not a trained species-recognition model, so verify that label in the field report.
 
 This is the HotSpotter family of wildlife re-ID (local features + geometry), not human face recognition and not a chat model guessing from a description. It will not be right 100% of the time. Viewpoint, occlusion and plain coats are genuinely hard. The report shows the lines so a person can check the machine.
 

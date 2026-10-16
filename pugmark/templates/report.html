@@ -62,7 +62,13 @@
             <li>
               <img src="{{ file.preview }}" alt="Preview of {{ file.name }}">
               <span class="thumb-name">{{ file.name }}</span>
-              <span class="thumb-meta">{{ file.species }} · {{ file.points }} points · {{ file.quality }}</span>
+              <span class="thumb-meta">
+                {{ file.species }}
+                {% if file.species_source == "filename hint" %}· filename hint
+                {% elif file.species_source == "coat-pattern heuristic" %}· visual estimate
+                {% else %}· species not estimated{% endif %}
+                · {{ file.points }} points · {{ file.quality }}
+              </span>
             </li>
             {% endfor %}
           </ul>
@@ -91,7 +97,7 @@
             <img src="{{ pair.evidence }}" alt="Corresponding marking points between {{ pair.a_name }} and {{ pair.b_name }}">
             <figcaption>
               {% if pair.verdict == "different" %}
-              Best candidate alignment — rejected. The lines are the few points that almost agreed.
+              Best candidate shown — rejected. Points are shown separately; no unverified correspondences are connected.
               {% else %}
               Lines join marking points that survived the geometric check.
               {% endif %}

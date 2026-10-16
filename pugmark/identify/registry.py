@@ -56,6 +56,8 @@ def process_scan_individuals(
         if match_record:
             # Animal already exists in database!
             existing_ind, inliers, conf = match_record
+            previous_last_seen = existing_ind.last_seen
+            previous_last_location = existing_ind.last_location
             existing_ind.sighting_count += 1
             existing_ind.last_location = scan_location
             existing_ind.last_seen = timezone.now()
@@ -74,6 +76,7 @@ def process_scan_individuals(
             )
 
             first_seen_str = existing_ind.first_seen.strftime("%d %b %Y, %I:%M %p")
+            previous_last_seen_str = previous_last_seen.strftime("%d %b %Y, %I:%M %p")
             last_seen_str = existing_ind.last_seen.strftime("%d %b %Y, %I:%M %p")
 
             ind["database_status"] = "ALREADY_EXISTS"
@@ -87,8 +90,9 @@ def process_scan_individuals(
             ind["last_seen"] = last_seen_str
             ind["last_location"] = existing_ind.last_location
             ind["history_note"] = (
-                f"Already cataloged! Previously spotted at {existing_ind.first_location} "
-                f"on {first_seen_str}. Total lifetime sightings: {existing_ind.sighting_count}."
+                f"Already cataloged. First recorded at {existing_ind.first_location} on {first_seen_str}; "
+                f"last seen before this scan at {previous_last_location} on {previous_last_seen_str}. "
+                f"Now recorded at {scan_location}. Total sightings: {existing_ind.sighting_count}."
             )
         else:
             # New individual animal discovered!
@@ -146,7 +150,7 @@ def _find_existing_match(sig, species_code: str):
         return None
 
     # Import locally to avoid circular dependencies
-    from .engine import _match, _verdict
+    from .engine import _match
 
     individuals = Individual.objects.all()
     best_candidate = None

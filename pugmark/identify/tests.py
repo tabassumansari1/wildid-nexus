@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -9,7 +10,8 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from identify.coats import render_coat
-from identify.engine import analyze
+from identify.engine import PairResult, _cluster, _verdict, analyze
+from identify.species import classify_species
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,6 +44,21 @@ class EngineTests(SimpleTestCase):
         self.assertEqual(result["summary"]["individuals"], 1)
         self.assertGreaterEqual(result["pairs"][0]["inliers"], 16)
 
+    def test_similar_frame_hash_does_not_bypass_geometry(self):
+        self.assertEqual(_verdict(0, 0.0, False), "different")
+
+    def test_conflicting_pair_blocks_transitive_identity_cluster(self):
+        signatures = [SimpleNamespace(file_id=file_id) for file_id in ("a", "b", "c")]
+        pairs = [
+            PairResult("a", "b", "same", 24, 30, 0.8, ""),
+            PairResult("b", "c", "same", 23, 30, 0.77, ""),
+            PairResult("a", "c", "different", 3, 30, 0.1, ""),
+        ]
+
+        groups = _cluster(signatures, pairs)
+
+        self.assertEqual(sorted(len(group["file_ids"]) for group in groups), [1, 2])
+
     def test_different_coats(self):
         first = self.tmp / "a.jpg"
         second = self.tmp / "b.jpg"
@@ -58,6 +75,14 @@ class EngineTests(SimpleTestCase):
         self.assertEqual(result["summary"]["verdict"], "different")
         self.assertEqual(len(result["individuals"]), 2)
         self.assertLessEqual(result["pairs"][0]["inliers"], 9)
+
+    def test_ambiguous_filename_and_plain_image_are_not_assigned_a_species(self):
+        image = np.full((128, 128, 3), 120, dtype=np.uint8)
+
+        result = classify_species(image, "camera-t-17.jpg")
+
+        self.assertEqual(result["species"], "Wild Individual")
+        self.assertEqual(result["classification_source"], "unclassified")
 
     def test_bundled_different_sample_is_repeatable(self):
         first = ROOT / "static" / "samples" / "coat-a-morning.jpg"
@@ -192,8 +217,24 @@ class UploadTests(TestCase):
         self.assertContains(resp2, "TIG-001")
         self.assertContains(resp2, "Waterhole Alpha")
 
-        # 3. Third scan with a completely DIFFERENT animal (Coat 7)
+        # 3. A later repeat should report the most recent previous location.
         resp3 = self.client.post(
+            reverse("create_scan"),
+            {
+                "files": [
+                    _jpeg(render_coat(1, 22, angle=3), "tiger-sighting5.jpg"),
+                    _jpeg(render_coat(1, 77, angle=-5), "tiger-sighting6.jpg"),
+                ],
+                "location": "Marsh Delta",
+            },
+            follow=True,
+        )
+        self.assertEqual(resp3.status_code, 200)
+        self.assertContains(resp3, "Sector 4 Ridge")
+        self.assertContains(resp3, "Marsh Delta")
+
+        # 4. A completely different animal must still receive a new ID.
+        resp4 = self.client.post(
             reverse("create_scan"),
             {
                 "files": [
@@ -204,5 +245,5 @@ class UploadTests(TestCase):
             },
             follow=True,
         )
-        self.assertEqual(resp3.status_code, 200)
-        self.assertContains(resp3, "TIG-002")
+        self.assertEqual(resp4.status_code, 200)
+        self.assertContains(resp4, "TIG-002")

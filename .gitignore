@@ -1,0 +1,23 @@
+# Python
+.venv/
+pugmark/.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+pugmark/db.sqlite3
+pugmark/media/uploads/
+pugmark/media/reports/
+pugmark/staticfiles/
+
+# Node
+node_modules/
+.tanstack/
+.vercel/
+dist/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+dev-log.txt

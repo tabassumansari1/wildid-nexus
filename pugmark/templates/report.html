@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Field report — WILD-ID Nexus{% endblock %}
+{% block content %}
+<article class="report">
+  {% if scan.status != "done" or not result.summary %}
+    <p class="stamp uncertain">Could not compare</p>
+    <h1>This set did not finish.</h1>
+    <p class="dek">{{ scan.error|default:"Nothing was saved for this report." }}</p>
+    <a class="btn" href="{% url 'connect' %}">Try another set</a>
+  {% else %}
+    <p class="stamp {{ result.summary.verdict }}">{{ result.summary.kicker }}</p>
+    <h1>{{ result.summary.headline }}</h1>
+    <p class="dek">{{ result.summary.dek }}</p>
+    <p class="count">{{ result.summary.files }} files · {{ result.summary.individuals }} individual{{ result.summary.individuals|pluralize }}</p>
+
+    <section class="groups" aria-labelledby="groups-title">
+      <h2 id="groups-title">Individuals</h2>
+      <div class="group-grid">
+        {% for group in result.individuals %}
+        <article class="group">
+          <header>
+            <h3>{{ group.title }}</h3>
+            {% if group.alone %}
+            <p>Unmatched in this set.</p>
+            {% else %}
+            <p>{{ group.matching_pairs }} pairwise match{{ group.matching_pairs|pluralize }} passed geometry checks.</p>
+            {% endif %}
+          </header>
+          <ul class="thumbs">
+            {% for file in group.files %}
+            <li>
+              <img src="{{ file.preview }}" alt="Preview of {{ file.name }}">
+              <span class="thumb-name">{{ file.name }}</span>
+              <span class="thumb-meta">{{ file.kind }} · {{ file.points }} points · {{ file.quality }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="pairs" aria-labelledby="pairs-title">
+      <h2 id="pairs-title">Pair by pair</h2>
+      <ol>
+        {% for pair in result.pairs %}
+        <li class="pair">
+          <div class="pair-top">
+            {% if pair.verdict == "uncertain" %}
+            <p class="stamp uncertain">Review needed</p>
+            {% else %}
+            <p class="stamp {{ pair.verdict }}">{{ pair.verdict }}</p>
+            {% endif %}
+            <p class="pair-names">{{ pair.a_name }} <span>and</span> {{ pair.b_name }}</p>
+            <p class="pair-evidence">{{ pair.inliers }} of {{ pair.good }} candidates passed geometry</p>
+          </div>
+          <p class="reason">{{ pair.reason }}</p>
+          {% if pair.evidence %}
+          <figure class="evidence">
+            <img src="{{ pair.evidence }}" alt="Corresponding marking points between {{ pair.a_name }} and {{ pair.b_name }}">
+            <figcaption>
+              {% if pair.verdict == "different" %}
+              Best candidate alignment — rejected. The lines are the few points that almost agreed.
+              {% else %}
+              Lines join marking points that survived the geometric check.
+              {% endif %}
+            </figcaption>
+          </figure>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    {% if result.skipped %}
+    <section class="skipped">
+      <h2>Left out</h2>
+      <ul>
+        {% for item in result.skipped %}
+        <li><strong>{{ item.name }}</strong> — {{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <aside class="method-foot">
+      <p>{{ result.method }}</p>
+    </aside>
+    <a class="btn" href="{% url 'connect' %}">Compare another set</a>
+  {% endif %}
+</article>
+{% endblock %}

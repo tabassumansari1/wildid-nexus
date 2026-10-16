@@ -1,0 +1,16 @@
+.venv/
+pugmark/.venv/
+node_modules/
+.git/
+.gitignore
+.vercel/
+.tanstack/
+db.sqlite3
+pugmark/db.sqlite3
+media/uploads/
+media/reports/
+pugmark/media/uploads/
+pugmark/media/reports/
+__pycache__/
+*.pyc
+dev-log.txt

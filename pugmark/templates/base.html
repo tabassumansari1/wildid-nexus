@@ -1,0 +1,36 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}WILD-ID Nexus{% endblock %}</title>
+  <meta name="description" content="WILD-ID Nexus connects wildlife sightings by comparing individual coat markings in photos and video.">
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="nav">
+    <a class="brand" href="{% url 'home' %}">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><b></b></span>
+      <span>WILD-ID Nexus</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="{% url 'home' %}#method">Method</a>
+      <a href="{% url 'home' %}#field">Field note</a>
+      <a class="btn btn-small" href="{% url 'connect' %}">Start connecting</a>
+    </nav>
+  </header>
+  <main id="content">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <div>
+      <p class="brand-line">WILD-ID Nexus</p>
+      <p>A field kit for re-identifying individual wild animals. Coat geometry, not a guess from pose.</p>
+    </div>
+    <p class="footer-meta">Pugmark is the local coat-marking matcher powering this demonstration.</p>
+  </footer>
+</body>
+</html>

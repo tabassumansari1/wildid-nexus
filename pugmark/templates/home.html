@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}WILD-ID Nexus — same animal, or a different one?{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">WILD-ID Nexus · Wildlife re-identification</p>
+    <h1>Same animal, or a different one?</h1>
+    <p class="dek">A waterhole photo is not an identity. WILD-ID Nexus compares coat markings — stripes, spots, scars — across your photos and clips, then reports which files may show the same individual.</p>
+    <p class="hindi">Jungle mein jo sher aaj dikha, aur jo kal — woh ek hai, ya do?</p>
+    <div class="hero-actions">
+      <a class="btn" href="{% url 'connect' %}">Start connecting</a>
+      <a class="text-link" href="#method">How a match is decided</a>
+    </div>
+    <dl class="facts">
+      <div><dt>Reads</dt><dd>Marking geometry</dd></div>
+      <div><dt>Ignores</dt><dd>Pose and species costume</dd></div>
+      <div><dt>Accepts</dt><dd>Photos and video</dd></div>
+    </dl>
+  </div>
+  <figure class="hero-figure">
+    <img src="{% static 'img/hero.jpg' %}" alt="Tiger in profile, drinking at a forest waterhole at dawn">
+    <figcaption>A sighting is a question. The coat is the answer.</figcaption>
+  </figure>
+</section>
+
+<section class="steps" aria-labelledby="steps-title">
+  <div class="section-head">
+    <p class="eyebrow">In the field</p>
+    <h2 id="steps-title">Three moves, then a report.</h2>
+  </div>
+  <ol>
+    <li>
+      <span>01</span>
+      <h3>Attach the sightings</h3>
+      <p>Several photos, a clip, or both. Patrol camera, phone, trap — mixed is fine.</p>
+    </li>
+    <li>
+      <span>02</span>
+      <h3>Read the coat</h3>
+      <p>Each file becomes marking points. Clips contribute their sharpest frames, not a blur of motion.</p>
+    </li>
+    <li>
+      <span>03</span>
+      <h3>Keep only geometry</h3>
+      <p>Points must agree under one transform. If they do, it is the same animal. If they cannot, it is not. If the frame is too poor, WILD-ID Nexus says so.</p>
+    </li>
+  </ol>
+</section>
+
+<section class="method" id="method">
+  <figure>
+    <img src="{% static 'img/flank.jpg' %}" alt="Close view of a leopard flank, each rosette a different shape">
+    <figcaption>Rosettes are a map. Two leopards do not share it.</figcaption>
+  </figure>
+  <div>
+    <p class="eyebrow">What is actually compared</p>
+    <h2>Not the smile. Not the stance. The pattern that does not repeat.</h2>
+    <p>Every adult of a species is built on the same skeleton. Mouth movement and body shape will not separate yesterday’s tiger from today’s. Scars, ear nicks, stripes and spots will.</p>
+    <ul class="method-list">
+      <li><strong>Locate.</strong> The animal region is separated from the waterhole and the trees, so the background cannot fake a match.</li>
+      <li><strong>Describe.</strong> SIFT marking points, the same family of local features HotSpotter used for zebras, giraffes and whales.</li>
+      <li><strong>Verify.</strong> A match is kept only when those points fit a single geometric transform. Lookalike spots that do not line up are thrown out.</li>
+      <li><strong>Group.</strong> Files that pass are one individual. The report shows geometric evidence and marking-point correspondences, not a probability score.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="note" id="field">
+  <p class="eyebrow">Field note</p>
+  <h2>It will refuse to guess.</h2>
+  <p>A soft, dark, or edge-on frame does not get called “a different animal” just to sound decisive. That result stays inconclusive. Published wildlife re-identification is strong on patterned coats in clear light, and honestly weaker when the marking is hidden. The report shows the correspondences so you can see the reason, not just a badge.</p>
+  <a class="btn" href="{% url 'connect' %}">Start connecting</a>
+</section>
+{% endblock %}

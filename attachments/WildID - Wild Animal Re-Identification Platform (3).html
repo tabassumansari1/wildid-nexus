@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="hi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WildID - Re-Identifying Individual Wild Animals</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        forest: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                            950: '#052e16',
+                        },
+                        darkbg: {
+                            100: '#1a231e',
+                            200: '#121915',
+                            300: '#0c120e'
+                        },
+                        lightbg: {
+                            100: '#ffffff',
+                            200: '#f4fbf7',
+                            300: '#e6f4ed'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Base Smooth Transition for Dynamic Theme Switching */
+        * {
+            transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+        }
+
+        /* DARK MODE STYLES (Default ThemeForest Dark) */
+        html.dark body {
+            background-color: #0c120e;
+            color: #ecfdf5;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+        }
+        html.dark .bg-glass {
+            background: rgba(22, 35, 27, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(74, 222, 128, 0.15);
+        }
+        html.dark .bg-glass-card {
+            background: rgba(18, 25, 21, 0.85);
+            border: 1px solid rgba(74, 222, 128, 0.12);
+        }
+        html.dark .bg-glass-card:hover {
+            border-color: rgba(74, 222, 128, 0.35);
+            box-shadow: 0 10px 30px -10px rgba(34, 197, 94, 0.25);
+        }
+        html.dark .card-sub-box {
+            background-color: #121915;
+            border-color: rgba(74, 222, 128, 0.1);
+        }
+        html.dark .footer-bg {
+            background-color: #0c120e;
+            border-color: rgba(74, 222, 128, 0.15);
+        }
+        html.dark .text-adaptive-muted {
+            color: rgba(167, 243, 208, 0.7);
+        }
+        html.dark .text-adaptive-heading {
+            color: #ffffff;
+        }
+
+        /* LIGHT MODE STYLES (Clean White & Emerald Green) */
+        html:not(.dark) body {
+            background-color: #f4fbf7;
+            color: #0f291e;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+        }
+        html:not(.dark) .bg-glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(22, 163, 74, 0.2);
+            box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
+        }
+        html:not(.dark) .bg-glass-card {
+            background: #ffffff;
+            border: 1px solid rgba(22, 163, 74, 0.2);
+            box-shadow: 0 10px 25px -5px rgba(22, 163, 74, 0.08);
+        }
+        html:not(.dark) .bg-glass-card:hover {
+            border-color: rgba(22, 163, 74, 0.4);
+            box-shadow: 0 12px 35px -5px rgba(22, 163, 74, 0.15);
+        }
+        html:not(.dark) .card-sub-box {
+            background-color: #eef9f2;
+            border-color: rgba(22, 163, 74, 0.15);
+        }
+        html:not(.dark) .footer-bg {
+            background-color: #ffffff;
+            border-color: rgba(22, 163, 74, 0.2);
+        }
+        html:not(.dark) .text-adaptive-muted {
+            color: #2d5a47;
+        }
+        html:not(.dark) .text-adaptive-heading {
+            color: #0a291c;
+        }
+
+        /* Shared Buttons & Visual Depth */
+        .btn-gradient {
+            background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+            box-shadow: 0 4px 20px -2px rgba(34, 197, 94, 0.4);
+            transition: all 0.3s ease;
+        }
+        .btn-gradient:hover {
+            background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
+            box-shadow: 0 6px 25px rgba(34, 197, 94, 0.6);
+            transform: translateY(-2px);
+        }
+        .green-glow {
+            box-shadow: 0 0 40px rgba(34, 197, 94, 0.15);
+        }
+        .drag-active {
+            border-color: #22c55e !important;
+            background-color: rgba(34, 197, 94, 0.1) !important;
+        }
+        
+        /* Mobile Touch Targets */
+        button, a, input {
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased">
+
+    <header class="fixed top-0 left-0 right-0 z-50 bg-glass px-4 sm:px-6 py-3.5">
+        <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
+            <!-- Brand Logo -->
+            <div class="flex items-center gap-2.5 cursor-pointer select-none" onclick="switchPage('landing')">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-forest-600/20 border border-forest-500/30 flex items-center justify-center text-forest-500 font-bold shrink-0">
+                    <i class="fa-solid fa-paw text-lg sm:text-xl"></i>
+                </div>
+                <div>
+                    <span class="text-lg sm:text-xl font-bold tracking-tight text-adaptive-heading">Wild<span class="text-forest-500">ID</span></span>
+                    <span class="text-[9px] sm:text-[10px] block text-forest-600 font-mono -mt-1 font-semibold">RE-IDENTIFICATION AI</span>
+                </div>
+            </div>
+
+            <!-- Desktop Links -->
+            <nav class="hidden md:flex items-center gap-6 lg:gap-8 text-sm font-medium text-adaptive-muted">
+                <a href="#how-it-works" onclick="switchPage('landing')" class="hover:text-forest-500 transition">फीचर्स (Features)</a>
+                <a href="#how-it-works" onclick="switchPage('landing')" class="hover:text-forest-500 transition">टेक्नोलॉजी (Tech)</a>
+                <span class="text-xs px-2.5 py-1 rounded-full bg-forest-500/10 text-forest-600 border border-forest-500/30 font-semibold">Hackathon Edition</span>
+            </nav>
+
+            <!-- Actions (Theme Toggle + App CTA Button) -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Language Selector Dropdown -->
+                <div class="relative">
+                    <select id="language-select" onchange="handleLanguageChange(this.value)" class="py-2 px-2.5 sm:px-3 rounded-xl bg-forest-500/10 border border-forest-500/20 text-forest-600 text-xs font-semibold focus:outline-none cursor-pointer">
+                        <option value="hi" class="bg-white dark:bg-darkbg-100 text-slate-800 dark:text-emerald-300">🇮🇳 हिन्दी (Hindi)</option>
+                        <option value="en" class="bg-white dark:bg-darkbg-100 text-slate-800 dark:text-emerald-300">🇬🇧 English</option>
+                        <option value="mr" class="bg-white dark:bg-darkbg-100 text-slate-800 dark:text-emerald-300">🇮🇳 मराठी (Marathi)</option>
+                        <option value="gu" class="bg-white dark:bg-darkbg-100 text-slate-800 dark:text-emerald-300">🇮🇳 ગુજરાતી (Gujarati)</option>
+                        <option value="bn" class="bg-white dark:bg-darkbg-100 text-slate-800 dark:text-emerald-300">🇮🇳 বাংলা (Bengali)</option>
+                        <option value="ta" class="bg-white dark:bg-darkbg-100 text-slate-800 dark:text-emerald-300">🇮🇳 தமிழ் (Tamil)</option>
+                        <option value="te" class="bg-white dark:bg-darkbg-100 text-slate-800 dark:text-emerald-300">🇮🇳 తెలుగు (Telugu)</option>
+                        <option value="es" class="bg-white dark:bg-darkbg-100 text-slate-800 dark:text-emerald-300">🇪🇸 Español</option>
+                        <option value="fr" class="bg-white dark:bg-darkbg-100 text-slate-800 dark:text-emerald-300">🇫🇷 Français</option>
+                    </select>
+                </div>
+
+                <!-- Theme Mode Toggle Button -->
+                <button type="button" onclick="toggleTheme()" class="p-2 sm:px-3 sm:py-2 rounded-xl bg-forest-500/10 border border-forest-500/20 text-forest-600 hover:bg-forest-500/20 transition flex items-center gap-2 text-xs font-semibold cursor-pointer" title="Toggle Theme Mode">
+                    <i id="theme-icon" class="fa-solid fa-moon text-sm"></i>
+                    <span id="theme-text" class="hidden sm:inline">Dark</span>
+                </button>
+
+                <!-- Primary CTA -->
+                <button type="button" onclick="switchPage('app')" class="btn-gradient px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white flex items-center gap-2 cursor-pointer relative z-10 shrink-0">
+                    <span data-i18n="startConnecting">Start Connecting</span>
+                    <i class="fa-solid fa-arrow-right text-[10px] sm:text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main id="page-landing" class="pt-24 sm:pt-28 pb-12 sm:pb-16 px-4 flex-1 flex flex-col justify-center">
+        <!-- Hero Section -->
+        <div class="max-w-5xl mx-auto text-center mt-4 sm:mt-8">
+            <div class="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-forest-500/10 border border-forest-500/30 text-forest-600 text-[11px] sm:text-xs font-bold uppercase tracking-wider mb-4 sm:mb-6 green-glow">
+                <i class="fa-solid fa-bolt text-xs"></i> <span data-i18n="badgeEngine">AI Powered Animal Matching Engine</span>
+            </div>
+            
+            <h1 class="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-adaptive-heading mb-4 sm:mb-6 leading-tight" data-i18n="heroTitle">
+                जंगल के जानवरों की <span class="text-transparent bg-clip-text bg-gradient-to-r from-forest-500 via-emerald-500 to-teal-600">सटीक री-आइडेंटिफिकेशन</span>
+            </h1>
+            
+            <p class="text-sm sm:text-lg md:text-xl text-adaptive-muted max-w-3xl mx-auto mb-8 sm:mb-10 leading-relaxed px-2" data-i18n="heroDesc">
+                क्या आप जानते हैं कि हर शेर या बाघ की स्पॉट्स और स्ट्राइप्स इंसानों की बायोमेट्रिक फिंगरप्रिंट की तरह यूनिक होती हैं? WildID AI फोटो और वीडियो से बॉडी स्ट्रक्चर और पैटर्न्स एनालाइज़ करके तुरंत बताता है कि यह वही जानवर है या कोई अलग।
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-12 sm:mb-16 w-full max-w-md sm:max-w-none mx-auto">
+                <button type="button" onclick="switchPage('app')" class="btn-gradient px-6 py-3.5 sm:px-8 sm:py-4 rounded-xl font-bold text-base sm:text-lg text-white flex items-center gap-3 w-full sm:w-auto justify-center cursor-pointer relative z-10 shadow-lg">
+                    <i class="fa-solid fa-play text-sm"></i>
+                    <span data-i18n="startConnectingNow">Start Connecting Now</span>
+                </button>
+                <a href="#how-it-works" class="px-6 py-3.5 sm:px-8 sm:py-4 rounded-xl font-semibold text-forest-600 bg-forest-500/10 border border-forest-500/30 hover:bg-forest-500/20 transition w-full sm:w-auto text-center text-sm sm:text-base" data-i18n="howItWorksBtn">
+                    यह कैसे काम करता है?
+                </a>
+            </div>
+
+            <!-- Dashboard Preview Responsive Stats Cards -->
+            <div class="bg-glass-card rounded-2xl p-4 sm:p-6 relative overflow-hidden green-glow max-w-4xl mx-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+                    <div class="card-sub-box p-4 rounded-xl border">
+                        <div class="text-forest-500 text-xl sm:text-2xl font-black mb-0.5">98.7%</div>
+                        <div class="text-[11px] sm:text-xs text-adaptive-muted font-medium" data-i18n="stat1Label">Matching Accuracy</div>
+                        <div class="text-xs sm:text-sm text-adaptive-heading mt-1 font-bold" data-i18n="stat1Value">Stripe & Facial Pattern Recognition</div>
+                    </div>
+                    <div class="card-sub-box p-4 rounded-xl border">
+                        <div class="text-forest-500 text-xl sm:text-2xl font-black mb-0.5" data-i18n="stat2Title">Multi-Format</div>
+                        <div class="text-[11px] sm:text-xs text-adaptive-muted font-medium" data-i18n="stat2Label">Upload Supported</div>
+                        <div class="text-xs sm:text-sm text-adaptive-heading mt-1 font-bold" data-i18n="stat2Value">High Res Photos & Video Clips</div>
+                    </div>
+                    <div class="card-sub-box p-4 rounded-xl border">
+                        <div class="text-forest-500 text-xl sm:text-2xl font-black mb-0.5">&lt; 3 Sec</div>
+                        <div class="text-[11px] sm:text-xs text-adaptive-muted font-medium" data-i18n="stat3Label">Processing Speed</div>
+                        <div class="text-xs sm:text-sm text-adaptive-heading mt-1 font-bold" data-i18n="stat3Value">Real-time Vision Comparison</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How It Works Section -->
+        <div id="how-it-works" class="max-w-6xl mx-auto mt-16 sm:mt-24">
+            <h2 class="text-xl sm:text-3xl font-bold text-center text-adaptive-heading mb-8 sm:mb-12" data-i18n="howItWorksTitle">
+                3 आसान स्टेप्स में वाइल्डलाइफ मैचिंग
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-8">
+                <div class="bg-glass-card p-5 sm:p-6 rounded-2xl">
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-forest-500/20 text-forest-600 flex items-center justify-center text-lg sm:text-xl font-bold mb-4">1</div>
+                    <h3 class="text-base sm:text-lg font-bold text-adaptive-heading mb-2" data-i18n="step1Title">मीडिया अपलोड करें</h3>
+                    <p class="text-xs sm:text-sm text-adaptive-muted leading-relaxed" data-i18n="step1Desc">विभिन्न समय या स्थानों पर ली गई मल्टीपल फ़ोटोज़ या वीडियो क्लिप्स अटैच करें।</p>
+                </div>
+                <div class="bg-glass-card p-5 sm:p-6 rounded-2xl">
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-forest-500/20 text-forest-600 flex items-center justify-center text-lg sm:text-xl font-bold mb-4">2</div>
+                    <h3 class="text-base sm:text-lg font-bold text-adaptive-heading mb-2" data-i18n="step2Title">AI बायोमेट्रिक एक्सट्रैक्शन</h3>
+                    <p class="text-xs sm:text-sm text-adaptive-muted leading-relaxed" data-i18n="step2Desc">मॉडल बॉडी शेप, पैटर्न्स, चेहरे के कट्स और मूवमेंट बिहेवियर को ऑटो-स्कैन करता है।</p>
+                </div>
+                <div class="bg-glass-card p-5 sm:p-6 rounded-2xl">
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-forest-500/20 text-forest-600 flex items-center justify-center text-lg sm:text-xl font-bold mb-4">3</div>
+                    <h3 class="text-base sm:text-lg font-bold text-adaptive-heading mb-2" data-i18n="step3Title">इंस्टेंट मैच रिपोर्ट</h3>
+                    <p class="text-xs sm:text-sm text-adaptive-muted leading-relaxed" data-i18n="step3Desc">पाएं विस्तृत एनालिसिस कि क्या यह वही एक इंडिविजुअल एनिमल है या कोई दूसरा!</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="page-app" class="pt-24 sm:pt-28 pb-12 sm:pb-16 px-4 hidden flex-1 max-w-6xl mx-auto w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
+            <div>
+                <button onclick="switchPage('landing')" class="text-xs text-forest-600 font-semibold hover:underline mb-1 flex items-center gap-1 cursor-pointer">
+                    <i class="fa-solid fa-arrow-left text-[10px]"></i> <span data-i18n="backToHome">वापस मुख्य पेज पर जाएं</span>
+                </button>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-adaptive-heading" data-i18n="workspaceTitle">Animal Re-Identification Workspace</h1>
+                <p class="text-xs sm:text-sm text-adaptive-muted mt-0.5" data-i18n="workspaceSubtitle">कंपैरिजन और वेरिफिकेशन के लिए अपनी फ़ोटोज़ और वीडियो क्लिप्स अटैच करें</p>
+            </div>
+            <button onclick="clearFiles()" class="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-xs font-semibold hover:bg-red-500/20 transition flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-trash"></i> <span data-i18n="resetBtn">रीसेट करें</span>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+            <!-- Left Column: Media Upload Area -->
+            <div class="lg:col-span-6 flex flex-col gap-5 sm:gap-6">
+                <!-- Dropzone Input -->
+                <div id="dropzone" class="bg-glass-card rounded-2xl p-6 sm:p-8 border-2 border-dashed border-forest-500/40 text-center cursor-pointer hover:border-forest-500 transition relative">
+                    <input type="file" id="fileInput" multiple accept="image/*,video/*" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 bg-forest-500/10 rounded-2xl flex items-center justify-center text-forest-600 mx-auto mb-3 sm:mb-4 text-2xl">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <h3 class="text-sm sm:text-base font-bold text-adaptive-heading mb-1" data-i18n="uploadHeader">मल्टीपल फोटो / वीडियो ड्राप करें या सेलेक्ट करें</h3>
+                    <p class="text-[11px] sm:text-xs text-adaptive-muted mb-4" data-i18n="uploadFormat">PNG, JPG, MP4, MOV - (High Quality Supported)</p>
+                    <span class="px-4 py-2 bg-forest-500/15 text-forest-600 rounded-lg text-xs font-bold border border-forest-500/30 inline-block pointer-events-none" data-i18n="attachMediaBtn">
+                        फ़ाइलें चुनें (Attach Media)
+                    </span>
+                </div>
+
+                <!-- Attached File Previews -->
+                <div class="bg-glass-card rounded-2xl p-4 sm:p-5">
+                    <h3 class="text-xs sm:text-sm font-bold text-adaptive-heading mb-3 flex items-center justify-between">
+                        <span><span data-i18n="attachedFiles">अटैच्ड मीडिया फ़ाइलें</span> (<span id="file-count" class="text-forest-600 font-extrabold">0</span>)</span>
+                        <span class="text-[10px] text-adaptive-muted font-normal" data-i18n="minFilesNotice">Min 2 files recommended</span>
+                    </h3>
+                    <div id="preview-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 min-h-[110px] max-h-[260px] overflow-y-auto p-1">
+                        <div id="empty-state" class="col-span-full flex flex-col items-center justify-center text-adaptive-muted text-xs py-6 sm:py-8">
+                            <i class="fa-regular fa-images text-2xl mb-2 opacity-50"></i>
+                            <span data-i18n="noMediaAttached">अभी तक कोई मीडिया अटैच नहीं हुआ है</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Run AI Analysis Trigger -->
+                <button id="analyze-btn" onclick="processAnimalIdentification()" disabled class="btn-gradient w-full py-3.5 sm:py-4 rounded-xl font-bold text-white text-sm sm:text-base flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-md">
+                    <i class="fa-solid fa-microscope"></i>
+                    <span data-i18n="runAnalysisBtn">बैकएंड AI एनालिसिस रन करें (Analyze Re-ID)</span>
+                </button>
+            </div>
+
+            <!-- Right Column: AI Analysis Result Output -->
+            <div class="lg:col-span-6">
+                <div class="bg-glass-card rounded-2xl p-5 sm:p-6 h-full flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between border-b border-forest-500/20 pb-4 mb-5 sm:mb-6">
+                            <h2 class="text-base sm:text-lg font-bold text-adaptive-heading flex items-center gap-2">
+                                <i class="fa-solid fa-chart-line text-forest-500"></i>
+                                <span data-i18n="aiReportTitle">Re-Identification AI रिपोर्ट</span>
+                            </h2>
+                            <span id="status-badge" class="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold bg-forest-500/10 text-forest-600 border border-forest-500/30" data-i18n="systemReady">
+                                सिस्टम तैयार है
+                            </span>
+                        </div>
+
+                        <!-- Spinner Loading Animation State -->
+                        <div id="loading-state" class="hidden py-10 text-center">
+                            <div class="w-14 h-14 sm:w-16 sm:h-16 border-4 border-forest-500/20 border-t-forest-500 rounded-full animate-spin mx-auto mb-4"></div>
+                            <h3 class="text-sm sm:text-base font-bold text-adaptive-heading mb-1" data-i18n="analyzingMedia">बैकएंड में मीडिया एनालाइज़ हो रहा है...</h3>
+                            <p class="text-xs text-adaptive-muted max-w-xs mx-auto mb-4 leading-relaxed" data-i18n="analyzingDetails">
+                                स्पॉट्स पैटर्न्स, बॉडी गेचर, मूंछों के कट्स और मूवमेंट का मिलान किया जा रहा है...
+                            </p>
+                            <div class="w-full bg-forest-500/10 rounded-full h-2 max-w-xs mx-auto overflow-hidden">
+                                <div class="bg-forest-500 h-full w-2/3 animate-pulse"></div>
+                            </div>
+                        </div>
+
+                        <!-- Result Display Render Box -->
+                        <div id="result-content" class="space-y-4">
+                            <div class="text-center py-10 sm:py-12 text-adaptive-muted">
+                                <i class="fa-solid fa-dna text-3xl sm:text-4xl mb-3 text-forest-500/40"></i>
+                                <p class="text-xs sm:text-sm" data-i18n="startInstruction">बाईं तरफ़ फ़ोटोज़/वीडियो अटैच करके AI विश्लेषण शुरू करें</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card Bottom Badge -->
+                    <div class="pt-4 mt-6 border-t border-forest-500/15 text-[10px] sm:text-[11px] text-adaptive-muted flex items-center justify-between font-medium">
+                        <span>Powered by Gemini Vision Model</span>
+                        <span>Hackathon Working Engine</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer-bg border-t py-5 sm:py-6 px-4 text-center text-xs text-adaptive-muted">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-leaf text-forest-500"></i>
+                <span class="font-bold text-adaptive-heading">WildID Platform</span> &copy; 2026 - Hackathon Solution
+            </div>
+            <div class="flex flex-wrap justify-center gap-4 sm:gap-6 text-[11px] sm:text-xs">
+                <a href="#" class="hover:text-forest-500">Privacy Policy (Future Scope)</a>
+                <a href="#" class="hover:text-forest-500">Terms of Service</a>
+                <a href="#" class="hover:text-forest-500">Help & Support</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Global Variables & State
+        let uploadedFiles = [];
+        let selectedLanguage = localStorage.getItem('wildid_language') || 'hi';
+        const apiKey = ""; // Gemini API Key runtime injection placeholder
+
+        // Page Navigation Switcher Logic (Landing <-> App Workspace)
+        function switchPage(pageName) {
+            const landingPage = document.getElementById('page-landing');
+            const appPage = document.getElementById('page-app');
+
+            if (pageName === 'app') {
+                landingPage.classList.add('hidden');
+                appPage.classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                appPage.classList.add('hidden');
+                landingPage.classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // Theme switching (Dark <-> Light)
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.classList.contains('dark');
+            if (isDark) {
+                html.classList.remove('dark');
+                localStorage.setItem('wildid_theme', 'light');
+                updateThemeUI(false);
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('wildid_theme', 'dark');
+                updateThemeUI(true);
+            }
+        }
+
+        function updateThemeUI(isDark) {
+            const icon = document.getElementById('theme-icon');
+            const text = document.getElementById('theme-text');
+            if (icon && text) {
+                if (isDark) {
+                    icon.className = 'fa-solid fa-moon text-sm';
+                    text.textContent = 'Dark';
+                } else {
+                    icon.className = 'fa-solid fa-sun text-sm text-amber-500';
+                    text.textContent = 'Light';
+                }
+            }
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('wildid_theme');
+            if (savedTheme) {
+                if (savedTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    updateThemeUI(true);
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    updateThemeUI(false);
+                }
+            } else {
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (prefersDark) {
+                    document.documentElement.classList.add('dark');
+                    updateThemeUI(true);
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    updateThemeUI(false);
+                }
+            }
+        }
+
+        // File Drag & Drop Handling Setup
+        document.addEventListener('DOMContentLoaded', () => {
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('fileInput');
+
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileSelect);
+            }
+
+            if (dropzone) {
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, preventDefaults, false);
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, () => dropzone.classList.add('drag-active'), false);
+                });
+
+                ['dragleave', 'drop

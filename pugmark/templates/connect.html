@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Connect sightings — WILD-ID Nexus{% endblock %}
+{% block content %}
+<section class="connect">
+  <div class="connect-copy">
+    <p class="eyebrow">Connect sightings</p>
+    <h1>Attach every photo and clip from the question.</h1>
+    <p class="dek">At least two. WILD-ID Nexus will report whether they may show the same individual, different individuals, or evidence too unclear to call.</p>
+  </div>
+
+  {% if error %}
+  <p class="banner" role="alert" id="form-error">{{ error }}</p>
+  {% else %}
+  <p class="banner" role="alert" id="form-error" hidden></p>
+  {% endif %}
+
+  <form id="scan-form" method="post" action="{% url 'create_scan' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label class="drop" id="drop">
+      <input id="files" name="files" type="file" accept="image/*,video/mp4,video/quicktime,video/webm,video/x-msvideo,.mkv,.mov,.mp4,.m4v,.webm,.avi" multiple>
+      <span class="drop-kicker">Field folder</span>
+      <span class="drop-title">Drop photos and videos</span>
+      <span class="drop-sub">or click to browse · JPG, PNG, WEBP, MP4, MOV, WEBM · up to 12 files</span>
+    </label>
+    <ul id="file-list" class="file-list" hidden></ul>
+    <div class="form-row">
+      <button class="btn" id="submit" type="submit" disabled>Compare markings</button>
+      <p class="hint" id="hint">Add at least two files.</p>
+    </div>
+  </form>
+
+  <div class="samples">
+    <p>No field photos yet? Load a reference set. Same seed means the same coat, re-photographed.</p>
+    <div class="sample-row">
+      <button type="button" class="btn btn-ghost" data-pack="same">Same individual, two shots</button>
+      <button type="button" class="btn btn-ghost" data-pack="different">Two individuals</button>
+      <button type="button" class="btn btn-ghost" data-pack="mixed">Three files, mixed</button>
+    </div>
+  </div>
+</section>
+
+<div id="overlay" class="overlay" hidden aria-live="polite">
+  <div class="overlay-card">
+    <p class="eyebrow">Reading markings</p>
+    <p class="overlay-title" id="progress-label">Uploading evidence.</p>
+    <progress id="upload-progress" max="100" value="0" aria-label="Upload progress"></progress>
+    <p id="progress-detail">A clip uses its sharpest frames, so it takes a little longer than a still.</p>
+  </div>
+</div>
+
+<script id="sample-data" type="application/json">
+{
+  "same": ["{% static 'samples/coat-a-morning.jpg' %}", "{% static 'samples/coat-a-later.jpg' %}"],
+  "different": ["{% static 'samples/coat-a-morning.jpg' %}", "{% static 'samples/coat-b.jpg' %}"],
+  "mixed": ["{% static 'samples/coat-a-morning.jpg' %}", "{% static 'samples/coat-a-later.jpg' %}", "{% static 'samples/coat-b.jpg' %}"]
+}
+</script>
+<script src="{% static 'js/connect.js' %}"></script>
+{% endblock %}
